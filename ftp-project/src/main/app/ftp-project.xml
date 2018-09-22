@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ftp="http://www.mulesoft.org/schema/mule/ee/ftp" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/ftp http://www.mulesoft.org/schema/mule/ee/ftp/current/mule-ftp-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <ftp:connector name="FTP" pollingFrequency="1000" validateConnections="true" moveToDirectory="/My Documents/backup/" doc:name="FTP"/>
+    <flow name="ftp-projectFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/write" doc:name="HTTP"/>
+        <dw:transform-message doc:name="prepareCSVData">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/csv header = true
+---
+payload map {
+	Id: $.id,
+	Name: $.name,
+	last: $.last,
+	office: $.office,
+	City: $.city,
+	mobile: $.mobile
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <ftp:outbound-endpoint host="ftp.drivehq.com" port="21" passive="true" responseTimeout="10000" doc:name="FTP" outputPattern="info.csv" password="107098Tago" path="/My Documents/" user="tagoo"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"message": "File uploaded successfully to remote server"
+}]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="ftp-projectFlow1">
+        <ftp:inbound-endpoint host="ftp.drivehq.com" port="21" path="/My Documents/" user="tagoo" password="107098Tago" passive="true" connector-ref="FTP" responseTimeout="10000" doc:name="FTP"/>
+        <logger message="file read from ftp is :: #[payload]" level="INFO" doc:name="Logger"/>
+        <file:outbound-endpoint path="C:\ftp" outputPattern="info.csv" responseTimeout="10000" doc:name="File"/>
+    </flow>
+</mule>
